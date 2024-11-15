@@ -1,76 +1,29 @@
-name: Build and Deploy to AWS
+version: 0.2
 
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+phases:
+  install:
+    runtime-versions:
+      python: 3.x
+    commands:
+      # Install dependencies
+      - echo Installing dependencies...
+      - pip install --upgrade pip
+      - pip install mlflow boto3 pandas
 
-jobs:
   build:
-    runs-on: ubuntu-latest
+    commands:
+      # Run MLflow server or any build steps you need
+      - echo Running MLflow project...
+      - mlflow run .
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  post_build:
+    commands:
+      # Optionally, you can add any post-build steps here
+      - echo "Post-build step completed."
 
-      - name: Set up Python (for MLflow or other dependencies)
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
-
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-
-      - name: Run tests (if needed)
-        run: |
-          pytest # Replace with your test command if any
-
-      - name: Build project (for example, creating artifacts or model packaging)
-        run: |
-          mkdir build
-          # Add any commands to build/prepare artifacts, models, etc.
-          # E.g., for MLflow artifacts:
-          # python your_mlflow_script.py
-
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-artifact
-          path: ./build/**  # Replace with your build folder or artifact
-
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build
-    environment:
-      name: production
-      url: ${{ steps.deploy-to-aws.outputs.website-url }}
-      
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download build artifact from build job
-        uses: actions/download-artifact@v4
-        with:
-          name: build-artifact
-
-      - name: Set up AWS CLI
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-west-2  # Adjust your region
-
-      - name: Deploy to AWS Elastic Beanstalk or S3
-        run: |
-          # Deploying to Elastic Beanstalk (as an example)
-          aws elasticbeanstalk create-application-version --application-name my-app --version-label v1 --source-bundle S3Bucket=my-bucket,S3Key=path/to/artifact.zip
-          aws elasticbeanstalk update-environment --environment-name my-environment --version-label v1
-          
-          # Or, if you want to deploy to S3 (static website):
-          aws s3 sync ./build/ s3://your-bucket-name --delete
-          
-      - name: Notify deployment status (optional)
-        run: echo "Deployment complete! Your app is live."
+artifacts:
+  files:
+    - '*/'
+    - 'mlflow.db'  # Include any artifacts or files you want to store in S3
+    - 'mlruns/*/'  # Save MLflow run logs or output if needed
+  discard-paths: no  # Retain directory structure for S3 upload
